@@ -2545,7 +2545,7 @@
       function tryNextSource() {
         if (attempts >= sources.length) {
           console.warn('MP3 audio files unavailable, using synthesized ambient audio...');
-          createSynthesizedAmbience(soundType);
+          console.error("Couldn't find:", soundType + ".mp3");
           return;
         }
 
@@ -2554,14 +2554,20 @@
         audio.volume = 0.55;
         currentAudioTrack = audio;
 
-        audio.play().then(() => {
-          isPlayingAudio = true;
-          const btnIcon = document.getElementById('music-icon');
-          if (btnIcon) btnIcon.className = 'fa-solid fa-pause';
-        }).catch(err => {
-          console.warn(`Failed loading audio source ${sources[attempts]}:`, err);
-          attempts++;
-          tryNextSource();
+        audio.addEventListener("canplaythrough", () => {
+            audio.play();
+
+            isPlayingAudio = true;
+
+            const btnIcon = document.getElementById("music-icon");
+            if (btnIcon) {
+                btnIcon.className = "fa-solid fa-pause";
+            }
+        });
+
+        audio.addEventListener("error", () => {
+            attempts++;
+            tryNextSource();
         });
       }
 
