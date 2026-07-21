@@ -3614,6 +3614,9 @@
       if (document.body.classList.contains('rain-mode')) {
         changeAmbientSound('rain');
         document.getElementById('ambient-sound-select').value = 'rain';
+      } else {
+        stopAmbientSound();
+        document.getElementById('ambient-sound-select').value = 'none';
       }
     }
 
@@ -3622,6 +3625,14 @@
       document.body.classList.remove('rain-mode');
       document.getElementById('sunny-btn').classList.toggle('active');
       document.getElementById('rain-btn').classList.remove('active');
+
+      if (document.body.classList.contains('sunshine-mode')) {
+        changeAmbientSound('birds');
+        document.getElementById('ambient-sound-select').value = 'birds';
+      } else {
+        stopAmbientSound();
+        document.getElementById('ambient-sound-select').value = 'none';
+      }
     }
 
     // RAIN CANVAS ANIMATION
