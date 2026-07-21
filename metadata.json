@@ -1,0 +1,6 @@
+{
+  "name": "For Palak",
+  "description": "A gentle, dreamy, peaceful corner of the internet created with love for Palak.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
