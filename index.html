@@ -2798,9 +2798,9 @@
       const hint = document.getElementById('cookie-hint');
       if (!paper) return;
 
-      playTone(880, 'sine', 0.15, 0.1);
-      setTimeout(() => playTone(1200, 'triangle', 0.25, 0.1), 100);
-      playHarpSweep();
+      try { playTone(880, 'sine', 0.15, 0.1); } catch (e) {}
+      try { setTimeout(() => playTone(1200, 'triangle', 0.25, 0.1), 100); } catch (e) {}
+      try { playHarpSweep(); } catch (e) {}
 
       const f = FORTUNE_DATA[Math.floor(Math.random() * FORTUNE_DATA.length)];
 
@@ -2818,20 +2818,38 @@
         paper.classList.add('show');
       }
 
-      anime({
-        targets: graphic,
-        scale: [1, 1.4, 1.1],
-        rotate: [0, -25, 25, -12, 12, 0],
-        duration: 650,
-        easing: 'easeInOutQuad'
-      });
+      // These rely on external CDN libraries (anime.js / canvas-confetti).
+      // If either failed to load, don't let that stop the fortune reveal above.
+      try {
+        if (typeof anime === 'function') {
+          anime({
+            targets: graphic,
+            scale: [1, 1.4, 1.1],
+            rotate: [0, -25, 25, -12, 12, 0],
+            duration: 650,
+            easing: 'easeInOutQuad'
+          });
+        } else {
+          console.warn('anime.js not available — skipping cookie bounce animation.');
+        }
+      } catch (e) {
+        console.warn('Cookie animation error:', e);
+      }
 
-      confetti({
-        particleCount: 45,
-        spread: 75,
-        origin: { y: 0.6 },
-        colors: ['#FFD54F', '#FFB74D', '#FFF59D', '#FF85A1']
-      });
+      try {
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 45,
+            spread: 75,
+            origin: { y: 0.6 },
+            colors: ['#FFD54F', '#FFB74D', '#FFF59D', '#FF85A1']
+          });
+        } else {
+          console.warn('canvas-confetti not available — skipping confetti burst.');
+        }
+      } catch (e) {
+        console.warn('Confetti error:', e);
+      }
     }
 
     function resetFortuneCookie(e) {
@@ -2844,16 +2862,22 @@
       if (hint) hint.innerText = "Click cookie to crack open!";
       if (graphic) graphic.innerText = "🥠";
 
-      playTone(523, 'sine', 0.1, 0.05);
+      try { playTone(523, 'sine', 0.1, 0.05); } catch (e) {}
 
       if (graphic) {
-        anime({
-          targets: graphic,
-          scale: [0.4, 1],
-          rotate: [-180, 0],
-          duration: 600,
-          easing: 'easeOutElastic(1, .6)'
-        });
+        try {
+          if (typeof anime === 'function') {
+            anime({
+              targets: graphic,
+              scale: [0.4, 1],
+              rotate: [-180, 0],
+              duration: 600,
+              easing: 'easeOutElastic(1, .6)'
+            });
+          }
+        } catch (e) {
+          console.warn('Cookie reset animation error:', e);
+        }
       }
     }
 
