@@ -2549,26 +2549,33 @@
           return;
         }
 
-        const audio = new Audio(sources[attempts]);
+        const audio = new Audio();
+        audio.src = sources[attempts];
+        audio.preload = "auto";
         audio.loop = true;
         audio.volume = 0.55;
         currentAudioTrack = audio;
 
-        audio.addEventListener("canplaythrough", () => {
-            audio.play();
+        audio.oncanplaythrough = async () => {
+            try {
+                await audio.play();
+                isPlayingAudio = true;
 
-            isPlayingAudio = true;
-
-            const btnIcon = document.getElementById("music-icon");
-            if (btnIcon) {
-                btnIcon.className = "fa-solid fa-pause";
+                const btnIcon = document.getElementById("music-icon");
+                if (btnIcon) {
+                    btnIcon.className = "fa-solid fa-pause";
+                }
+            } catch (err) {
+                console.error(err);
             }
-        });
+        };
 
-        audio.addEventListener("error", () => {
+        audio.onerror = () => {
             attempts++;
             tryNextSource();
-        });
+        };
+
+        audio.load();
       }
 
       tryNextSource();
