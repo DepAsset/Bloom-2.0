@@ -2455,12 +2455,18 @@
 
     let currentAudioTrack = null;
     let synthAudioNode = null;
+    let audioLoadToken = 0;
 
     function stopAmbientSound() {
+      // Invalidate any in-flight load attempts so their canplaythrough/play
+      // handlers no-op even if they resolve after this call.
+      audioLoadToken++;
+
       if (currentAudioTrack) {
         try {
           currentAudioTrack.pause();
           currentAudioTrack.currentTime = 0;
+          currentAudioTrack.src = '';
         } catch (e) {}
         currentAudioTrack = null;
       }
@@ -2533,6 +2539,10 @@
       stopAmbientSound();
       if (soundType === 'none') return;
 
+      // stopAmbientSound() above already bumped audioLoadToken, so capture
+      // the fresh value that identifies THIS request.
+      const myToken = audioLoadToken;
+
       // Primary audio sources
       const sources = [
         `./${soundType}.mp3`,
@@ -2543,6 +2553,10 @@
       let attempts = 0;
 
       function tryNextSource() {
+        // A newer sound was selected, or stop was pressed, while we were
+        // still loading this one — abandon it silently.
+        if (myToken !== audioLoadToken) return;
+
         if (attempts >= sources.length) {
           console.warn('MP3 audio files unavailable, using synthesized ambient audio...');
           console.error("Couldn't find:", soundType + ".mp3");
@@ -2554,10 +2568,15 @@
         audio.preload = "auto";
         audio.loop = true;
         audio.volume = 0.55;
-        currentAudioTrack = audio;
 
         audio.oncanplaythrough = async () => {
+            // Stale load from a previous selection — don't play it.
+            if (myToken !== audioLoadToken) {
+                try { audio.pause(); } catch (e) {}
+                return;
+            }
             try {
+                currentAudioTrack = audio;
                 await audio.play();
                 isPlayingAudio = true;
 
@@ -2571,6 +2590,7 @@
         };
 
         audio.onerror = () => {
+            if (myToken !== audioLoadToken) return;
             attempts++;
             tryNextSource();
         };
