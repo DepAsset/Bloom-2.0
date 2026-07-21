@@ -2454,6 +2454,7 @@
     }
 
     let currentAudioTrack = null;
+    let synthAudioNode = null;
 
     function stopAmbientSound() {
       if (currentAudioTrack) {
@@ -2463,35 +2464,113 @@
         } catch (e) {}
         currentAudioTrack = null;
       }
+      if (synthAudioNode) {
+        try {
+          synthAudioNode.stop();
+          synthAudioNode.disconnect();
+        } catch (e) {}
+        synthAudioNode = null;
+      }
+      if (ambientInterval) {
+        clearInterval(ambientInterval);
+        ambientInterval = null;
+      }
       isPlayingAudio = false;
       const btnIcon = document.getElementById('music-icon');
       if (btnIcon) btnIcon.className = 'fa-solid fa-play';
     }
 
-    function changeAmbientSound(soundType) {
-      stopAmbientSound();
-      if (soundType === 'none') return;
+    function createSynthesizedAmbience(soundType) {
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
 
-      const audio = new Audio(`${soundType}.mp3`);
-      audio.loop = true;
-      audio.volume = 0.55;
-      currentAudioTrack = audio;
+        // Fallback procedural sound generator (white/pink noise or harmonic chime loop)
+        const bufferSize = 2 * ctx.sampleRate;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
 
-      audio.play().then(() => {
+        const whiteNoise = ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
+
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+
+        if (soundType === 'rain') {
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(800, ctx.currentTime);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        } else if (soundType === 'ocean' || soundType === 'wind') {
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(400, ctx.currentTime);
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        } else {
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(600, ctx.currentTime);
+          gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        }
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        whiteNoise.start();
+        synthAudioNode = whiteNoise;
+
         isPlayingAudio = true;
         const btnIcon = document.getElementById('music-icon');
         if (btnIcon) btnIcon.className = 'fa-solid fa-pause';
-      }).catch(err => {
-        console.warn('Audio track playback error:', err);
-        isPlayingAudio = false;
-        const btnIcon = document.getElementById('music-icon');
-        if (btnIcon) btnIcon.className = 'fa-solid fa-play';
-      });
+      } catch (e) {
+        console.warn('Synth fallback error:', e);
+      }
+    }
+
+    function changeAmbientSound(soundType) {
+      unlockAudioContext();
+      stopAmbientSound();
+      if (soundType === 'none') return;
+
+      // Primary audio sources
+      const sources = [
+        `./${soundType}.mp3`,
+        `/${soundType}.mp3`,
+        `./public/${soundType}.mp3`
+      ];
+
+      let attempts = 0;
+
+      function tryNextSource() {
+        if (attempts >= sources.length) {
+          console.warn('MP3 audio files unavailable, using synthesized ambient audio...');
+          createSynthesizedAmbience(soundType);
+          return;
+        }
+
+        const audio = new Audio(sources[attempts]);
+        audio.loop = true;
+        audio.volume = 0.55;
+        currentAudioTrack = audio;
+
+        audio.play().then(() => {
+          isPlayingAudio = true;
+          const btnIcon = document.getElementById('music-icon');
+          if (btnIcon) btnIcon.className = 'fa-solid fa-pause';
+        }).catch(err => {
+          console.warn(`Failed loading audio source ${sources[attempts]}:`, err);
+          attempts++;
+          tryNextSource();
+        });
+      }
+
+      tryNextSource();
     }
 
     function toggleAudioState() {
       unlockAudioContext();
-      if (!currentAudioTrack) {
+      if (!currentAudioTrack && !synthAudioNode) {
         const select = document.getElementById('ambient-sound-select');
         let val = select ? select.value : 'rain';
         if (val === 'none') val = 'rain';
@@ -2501,16 +2580,12 @@
       }
 
       if (isPlayingAudio) {
-        currentAudioTrack.pause();
-        isPlayingAudio = false;
-        const btnIcon = document.getElementById('music-icon');
-        if (btnIcon) btnIcon.className = 'fa-solid fa-play';
+        stopAmbientSound();
       } else {
-        currentAudioTrack.play().then(() => {
-          isPlayingAudio = true;
-          const btnIcon = document.getElementById('music-icon');
-          if (btnIcon) btnIcon.className = 'fa-solid fa-pause';
-        }).catch(err => console.warn(err));
+        const select = document.getElementById('ambient-sound-select');
+        let val = select ? select.value : 'rain';
+        if (val === 'none') val = 'rain';
+        changeAmbientSound(val);
       }
     }
 
